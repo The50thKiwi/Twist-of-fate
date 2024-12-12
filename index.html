@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reversi Game</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(8, 40px);
+            gap: 2px;
+            background-color: #333;
+            padding: 5px;
+            border: 2px solid #444;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            background-color: #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+        .cell.black {
+            background-color: black;
+        }
+        .cell.white {
+            background-color: white;
+        }
+        .cell.highlight {
+            background-color: rgba(0, 255, 0, 0.3);
+        }
+        .cell.flip {
+            transform: scale(1.2);
+        }
+        .result {
+            display: none;
+            background-color: black;
+            color: white;
+            padding: 20px;
+            margin-top: 20px;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="board" id="board"></div>
+    <div class="result" id="result">97</div>
+
+    <script>
+        const boardElement = document.getElementById('board');
+        const resultElement = document.getElementById('result');
+        const SIZE = 8;
+        const board = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null));
+        let currentPlayer = 'black';
+
+        function initializeBoard() {
+            board[3][3] = 'white';
+            board[3][4] = 'black';
+            board[4][3] = 'black';
+            board[4][4] = 'white';
+            renderBoard();
+        }
+
+        function renderBoard() {
+            boardElement.innerHTML = '';
+            for (let row = 0; row < SIZE; row++) {
+                for (let col = 0; col < SIZE; col++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    if (board[row][col]) {
+                        cell.classList.add(board[row][col]);
+                    } else if (isValidMove(row, col, currentPlayer)) {
+                        cell.classList.add('highlight');
+                    }
+                    cell.addEventListener('click', () => handleCellClick(row, col));
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellClick(row, col) {
+            if (board[row][col] !== null || !isValidMove(row, col, currentPlayer)) return;
+            makeMove(row, col, currentPlayer);
+            currentPlayer = currentPlayer === 'black' ? 'white' : 'black';
+            if (!hasValidMoves('black') && !hasValidMoves('white')) {
+                endGame();
+            } else if (!hasValidMoves(currentPlayer)) {
+                currentPlayer = currentPlayer === 'black' ? 'white' : 'black';
+            }
+            renderBoard();
+            if (currentPlayer === 'white') {
+                setTimeout(computerMove, 500);
+            }
+        }
+
+        function isValidMove(row, col, player) {
+            return getFlippableTiles(row, col, player).length > 0;
+        }
+
+        function makeMove(row, col, player) {
+            const tilesToFlip = getFlippableTiles(row, col, player);
+            board[row][col] = player;
+            tilesToFlip.forEach(([r, c]) => {
+                board[r][c] = player;
+                animateFlip(r, c);
+            });
+        }
+
+        function animateFlip(row, col) {
+            const cellIndex = row * SIZE + col;
+            const cellElement = boardElement.children[cellIndex];
+            cellElement.classList.add('flip');
+            setTimeout(() => {
+                cellElement.classList.remove('flip');
+            }, 300);
+        }
+
+        function getFlippableTiles(row, col, player) {
+            const directions = [
+                [-1, 0], [1, 0], [0, -1], [0, 1],
+                [-1, -1], [-1, 1], [1, -1], [1, 1]
+            ];
+            const opponent = player === 'black' ? 'white' : 'black';
+            const flippable = [];
+
+            for (const [dr, dc] of directions) {
+                let r = row + dr;
+                let c = col + dc;
+                const tiles = [];
+                while (r >= 0 && r < SIZE && c >= 0 && c < SIZE && board[r][c] === opponent) {
+                    tiles.push([r, c]);
+                    r += dr;
+                    c += dc;
+                }
+                if (r >= 0 && r < SIZE && c >= 0 && c < SIZE && board[r][c] === player) {
+                    flippable.push(...tiles);
+                }
+            }
+
+            return flippable;
+        }
+
+        function hasValidMoves(player) {
+            for (let row = 0; row < SIZE; row++) {
+                for (let col = 0; col < SIZE; col++) {
+                    if (board[row][col] === null && isValidMove(row, col, player)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function endGame() {
+            const blackCount = board.flat().filter(cell => cell === 'black').length;
+            const whiteCount = board.flat().filter(cell => cell === 'white').length;
+            if (blackCount > whiteCount) {
+                resultElement.style.display = 'block';
+            } else {
+                window.close();
+            }
+        }
+
+        function computerMove() {
+            let bestMove = null;
+            let maxFlips = 0;
+
+            for (let row = 0; row < SIZE; row++) {
+                for (let col = 0; col < SIZE; col++) {
+                    if (isValidMove(row, col, 'white')) {
+                        const flips = getFlippableTiles(row, col, 'white').length;
+                        if (flips > maxFlips) {
+                            maxFlips = flips;
+                            bestMove = [row, col];
+                        }
+                    }
+                }
+            }
+
+            if (bestMove) {
+                const [row, col] = bestMove;
+                makeMove(row, col, 'white');
+                currentPlayer = 'black';
+                renderBoard();
+            }
+        }
+
+        initializeBoard();
+    </script>
+</body>
+</html>
